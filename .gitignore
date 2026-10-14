@@ -1,0 +1,18 @@
+# Java
+backend/target/
+*.class
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.json
+!package.json
+
+# IDE
+.idea/
+.vscode/

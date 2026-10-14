@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: family-finance-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: GOOGLE_SHEETS_SPREADSHEET_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: STORAGE_MODE
+        value: sheets
+      - key: INITIAL_FATHER_PASSWORD
+        sync: false
+      - key: INITIAL_SON1_PASSWORD
+        sync: false
+      - key: INITIAL_SON2_PASSWORD
+        sync: false
+      - key: FATHER_DISPLAY_NAME
+        value: Pappa
+      - key: SON1_DISPLAY_NAME
+        value: Om
+      - key: SON2_DISPLAY_NAME
+        value: Yash
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
