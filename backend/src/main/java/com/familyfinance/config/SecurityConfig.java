@@ -46,14 +46,35 @@ public class SecurityConfig {
     @Bean SecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
 
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository repository) throws Exception {
-        var csrf = CookieCsrfTokenRepository.withHttpOnlyFalse(); var handler = new CsrfTokenRequestAttributeHandler();
+        var csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepo.setCookiePath("/");
+        // Use the plain handler — it expects the raw cookie token in X-XSRF-TOKEN header.
+        // /auth/login and /auth/csrf are excluded from CSRF so the bootstrap flow works cleanly.
+        var handler = new CsrfTokenRequestAttributeHandler();
         http.securityContext(context -> context.securityContextRepository(repository))
-            .csrf(config -> config.csrfTokenRepository(csrf).csrfTokenRequestHandler(handler))
+            .csrf(config -> config
+                .csrfTokenRepository(csrfRepo)
+                .csrfTokenRequestHandler(handler)
+                .ignoringRequestMatchers("/api/v1/auth/login", "/api/v1/auth/csrf", "/api/v1/auth/logout"))
             .cors(cors -> {})
-            .authorizeHttpRequests(auth -> auth.requestMatchers("/ping", "/api/v1/auth/**", "/actuator/health", "/error").permitAll().anyRequest().authenticated())
-            .logout(logout -> logout.logoutUrl("/api/v1/auth/logout").invalidateHttpSession(true).deleteCookies("JSESSIONID", "XSRF-TOKEN"));
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/ping", "/api/v1/auth/**", "/actuator/health", "/error").permitAll()
+                .anyRequest().authenticated())
+            .logout(logout -> logout
+                .logoutUrl("/api/v1/auth/logout")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN"));
         return http.build();
     }
 
-    @Bean CorsConfigurationSource corsConfigurationSource() { var config = new CorsConfiguration(); config.setAllowedOriginPatterns(List.of(frontendOrigin.split(","))); config.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS")); config.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN")); config.setAllowCredentials(true); var source = new UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration("/**", config); return source; }
+    @Bean CorsConfigurationSource corsConfigurationSource() {
+        var config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of(frontendOrigin.split(",")));
+        config.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
+        config.setAllowCredentials(true);
+        var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }
