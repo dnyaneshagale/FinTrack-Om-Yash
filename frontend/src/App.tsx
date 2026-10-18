@@ -11,33 +11,48 @@ type Transaction = { id: string; accountId: string; type: 'CREDIT' | 'DEBIT'; am
 type Need = { id: string; requesterName: string; cause: string; amountPaise: number; fundedPaise: number; remainingPaise: number; requiredBy: string; status: string }
 type Profile = { id: string; username: string; displayName: string; role: 'ADMIN' | 'MEMBER' }
 
-// ── Demo Accounts for Rapid Local Dev & Family Switching ──────────────────────
+// ── Demo Accounts (Production & Local Dev) ──────────────────────────────────
+const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+
 const DEMO_ACCOUNTS = [
-  { label: 'Pappa', role: 'Father (Admin)', user: 'Pappa', pass: 'dev-father-change-me', avatar: '👨' },
-  { label: 'Om', role: 'Son 1 (Member)', user: 'Om', pass: 'dev-son1-change-me', avatar: '👦' },
-  { label: 'Yash', role: 'Son 2 (Member)', user: 'Yash', pass: 'dev-son2-change-me', avatar: '👦' },
+  { label: 'Pappa', role: 'Father (Admin)', user: 'Pappa', pass: isProd ? 'OmYash' : 'dev-father-change-me', avatar: '👨' },
+  { label: 'Om', role: 'Son 1 (Member)', user: 'Om', pass: isProd ? 'MummyPappa' : 'dev-son1-change-me', avatar: '👦' },
+  { label: 'Yash', role: 'Son 2 (Member)', user: 'Yash', pass: isProd ? 'MummyPappa' : 'dev-son2-change-me', avatar: '👦' },
 ] as const
 
 // ── API helpers ───────────────────────────────────────────────────────────────────────────────
-const api = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'
+// In production Netlify, use the same-origin proxy '/api/v1' to eliminate cross-site cookie blocking.
+// In local dev, fall back to localhost:8080/api/v1.
+const api = import.meta.env.VITE_API_BASE_URL ||
+  (isProd ? '/api/v1' : 'http://localhost:8080/api/v1')
+
 const money = (paise: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(paise / 100)
 
-// Reads the raw XSRF-TOKEN cookie set by the backend's CookieCsrfTokenRepository.
-// /auth/login and /auth/csrf are CSRF-ignored on the backend; all data endpoints require it.
-const getCsrfCookie = () =>
-  document.cookie.split('; ').find((p) => p.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? ''
+let inMemoryCsrfToken = ''
 
-// Fetches /auth/csrf to force the backend to write the XSRF-TOKEN cookie.
-// Must be called before any login attempt so the cookie exists for subsequent data calls.
-const initCsrf = () => fetch(`${api}/auth/csrf`, { credentials: 'include' })
+// Reads the raw XSRF-TOKEN cookie or falls back to in-memory token (for cross-domain setups)
+const getCsrfToken = () => {
+  const cookieToken = document.cookie.split('; ').find((p) => p.startsWith('XSRF-TOKEN='))?.split('=')[1]
+  return cookieToken ? decodeURIComponent(cookieToken) : inMemoryCsrfToken
+}
+
+// Fetches /auth/csrf to set the cookie AND save the token in memory
+const initCsrf = () =>
+  fetch(`${api}/auth/csrf`, { credentials: 'include' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data?.token) inMemoryCsrfToken = data.token
+      return data
+    })
+    .catch(() => null)
 
 const apiFetch = (path: string, init: RequestInit = {}) => {
   const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(init.headers)
   if (method !== 'GET') {
-    const token = getCsrfCookie()
-    if (token) headers.set('X-XSRF-TOKEN', decodeURIComponent(token))
+    const token = getCsrfToken()
+    if (token) headers.set('X-XSRF-TOKEN', token)
   }
   return fetch(`${api}${path}`, { ...init, headers, credentials: 'include' })
 }

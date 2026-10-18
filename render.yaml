@@ -30,3 +30,5 @@ services:
         value: Yash
       - key: SESSION_COOKIE_SECURE
         value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: "none"
