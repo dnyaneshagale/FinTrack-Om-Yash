@@ -14,47 +14,24 @@ type Profile = { id: string; username: string; displayName: string; role: 'ADMIN
 // ── Demo Accounts (Production & Local Dev) ──────────────────────────────────
 const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
 
-const DEMO_ACCOUNTS = [
-  { label: 'Pappa', role: 'Father (Admin)', user: 'Pappa', pass: isProd ? 'OmYash' : 'dev-father-change-me', avatar: '👨' },
-  { label: 'Om', role: 'Son 1 (Member)', user: 'Om', pass: isProd ? 'MummyPappa' : 'dev-son1-change-me', avatar: '👦' },
-  { label: 'Yash', role: 'Son 2 (Member)', user: 'Yash', pass: isProd ? 'MummyPappa' : 'dev-son2-change-me', avatar: '👦' },
-] as const
 
 // ── API helpers ───────────────────────────────────────────────────────────────────────────────
-// In production Netlify, use the same-origin proxy '/api/v1' to eliminate cross-site cookie blocking.
-// In local dev, fall back to localhost:8080/api/v1.
 const api = import.meta.env.VITE_API_BASE_URL ||
   (isProd ? '/api/v1' : 'http://localhost:8080/api/v1')
 
 const money = (paise: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(paise / 100)
 
-let inMemoryCsrfToken = ''
-
-// Reads the raw XSRF-TOKEN cookie or falls back to in-memory token (for cross-domain setups)
-const getCsrfToken = () => {
-  const cookieToken = document.cookie.split('; ').find((p) => p.startsWith('XSRF-TOKEN='))?.split('=')[1]
-  return cookieToken ? decodeURIComponent(cookieToken) : inMemoryCsrfToken
-}
-
-// Fetches /auth/csrf to set the cookie AND save the token in memory
-const initCsrf = () =>
-  fetch(`${api}/auth/csrf`, { credentials: 'include' })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((data) => {
-      if (data?.token) inMemoryCsrfToken = data.token
-      return data
-    })
-    .catch(() => null)
-
 const apiFetch = (path: string, init: RequestInit = {}) => {
-  const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(init.headers)
-  if (method !== 'GET') {
-    const token = getCsrfToken()
-    if (token) headers.set('X-XSRF-TOKEN', token)
+  const savedUser = localStorage.getItem('fintrack_user')
+  if (savedUser) {
+    try {
+      const u = JSON.parse(savedUser)
+      if (u?.username) headers.set('X-User', u.username)
+    } catch {}
   }
-  return fetch(`${api}${path}`, { ...init, headers, credentials: 'include' })
+  return fetch(`${api}${path}`, { ...init, headers })
 }
 
 // ── Date utilities ────────────────────────────────────────────────────────────
@@ -105,17 +82,18 @@ function App() {
     localStorage.setItem('family-finance-theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
-  // Session check on mount — initCsrf() forces the backend to write the XSRF-TOKEN cookie
-  // so it is readable by getCsrfCookie() before the first mutating data call after login.
+  // Restore session from localStorage on mount
   useEffect(() => {
-    initCsrf()
-      .then(() => apiFetch('/auth/me'))
-      .then(async (response) => {
-        if (!response.ok) throw new Error('signed-out')
-        setProfile(await response.json())
-      })
-      .catch(() => undefined)
-      .finally(() => setAuthLoading(false))
+    const saved = localStorage.getItem('fintrack_user')
+    if (saved) {
+      try {
+        const u = JSON.parse(saved)
+        if (u && u.username) {
+          setProfile(u)
+        }
+      } catch {}
+    }
+    setAuthLoading(false)
   }, [])
 
   // Load accounts + needs after login
@@ -176,6 +154,17 @@ function App() {
   ] as const
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
+  const signOut = () => {
+    localStorage.removeItem('fintrack_user')
+    setProfile(null)
+    setAccounts([])
+    setTransactions([])
+    setNeeds([])
+    setDataLoaded(false)
+    setDataError('')
+    apiFetch('/auth/logout', { method: 'POST' }).catch(() => {})
+  }
+
   const login = (event?: React.FormEvent<HTMLFormElement>) => {
     if (event) event.preventDefault()
     if (loginLoading) return
@@ -191,7 +180,9 @@ function App() {
           const data = await response.json().catch(() => null)
           throw new Error(data?.message || 'Invalid username or password. Please try again.')
         }
-        setProfile(await response.json())
+        const userProfile = (await response.json()) as Profile
+        localStorage.setItem('fintrack_user', JSON.stringify(userProfile))
+        setProfile(userProfile)
       })
       .catch((error: Error) => setAuthError(error.message))
       .finally(() => setLoginLoading(false))
@@ -328,29 +319,6 @@ function App() {
           <h1>Welcome back.</h1>
           <p className="muted">Sign in as Pappa, Om, or Yash using your password.</p>
 
-          <div className="quick-users">
-            <span className="quick-users-label">Quick select demo account</span>
-            <div className="quick-users-grid">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.user}
-                  type="button"
-                  className="quick-user-btn"
-                  onClick={() => {
-                    setLoginUsername(acc.user)
-                    setLoginPassword(acc.pass)
-                    setAuthError('')
-                  }}
-                  disabled={loginLoading}
-                  title={`Click to fill credentials for ${acc.label}`}
-                >
-                  <span>{acc.avatar} {acc.label}</span>
-                  <small>{acc.role}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <label htmlFor="login-username">
             Name
             <input
@@ -427,7 +395,7 @@ function App() {
           <button className="primary-button wide" onClick={() => window.location.reload()}>
             Retry connection
           </button>
-          <button className="theme-link" onClick={() => apiFetch('/auth/logout', { method: 'POST' }).then(() => setProfile(null))}>
+          <button className="theme-link" onClick={signOut}>
             Sign out
           </button>
         </div>
@@ -450,7 +418,7 @@ function App() {
             </button>
             <button
               className="icon-button"
-              onClick={() => apiFetch('/auth/logout', { method: 'POST' }).then(() => setProfile(null))}
+              onClick={signOut}
               aria-label="Sign out"
             >
               <LogOut size={18} />
@@ -584,7 +552,7 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => apiFetch('/auth/logout', { method: 'POST' }).then(() => setProfile(null))}>
+          <button className="nav-item" onClick={signOut}>
             <LogOut size={17} />Sign out
           </button>
           <small>v0.1.0 · Asia/Kolkata</small>
