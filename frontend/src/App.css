@@ -1149,3 +1149,21 @@ h3 {
     gap: 8px;
   }
 }
+
+/* Hide Netlify badge / drawer */
+#nl-badge,
+.nl-badge,
+[id="nl-badge"],
+[class*="nl-badge"],
+[aria-label*="Netlify"],
+[data-netlify-badge],
+iframe[src*="netlify"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  z-index: -9999 !important;
+}

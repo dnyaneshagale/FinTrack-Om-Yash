@@ -57,10 +57,8 @@ public class LedgerService {
         var son1 = new Ledger.User(UUID.fromString("00000000-0000-0000-0000-000000000002"), "son1", son1Name, Ledger.Role.MEMBER);
         var son2 = new Ledger.User(UUID.fromString("00000000-0000-0000-0000-000000000003"), "son2", son2Name, Ledger.Role.MEMBER);
         users.put(father.id(), father); users.put(son1.id(), son1); users.put(son2.id(), son2);
-        accounts.put(UUID.fromString("10000000-0000-0000-0000-000000000001"), new Ledger.Account(UUID.fromString("10000000-0000-0000-0000-000000000001"), son1.id(), son1.displayName(), 2500000, LocalDate.of(2026, 1, 1)));
-        accounts.put(UUID.fromString("10000000-0000-0000-0000-000000000002"), new Ledger.Account(UUID.fromString("10000000-0000-0000-0000-000000000002"), son2.id(), son2.displayName(), 1800000, LocalDate.of(2026, 1, 1)));
-        addSeedTransaction(accounts.keySet().stream().findFirst().orElseThrow(), Ledger.Type.DEBIT, 18500, LocalDate.now(ZONE).minusDays(1), "College lunch", "Lunch and snacks.", son1.id(), null);
-        addSeedTransaction(accounts.keySet().stream().skip(1).findFirst().orElseThrow(), Ledger.Type.CREDIT, 500000, LocalDate.now(ZONE).minusDays(3), "Monthly allowance", "Allowance received from Father.", father.id(), null);
+        accounts.put(UUID.fromString("10000000-0000-0000-0000-000000000001"), new Ledger.Account(UUID.fromString("10000000-0000-0000-0000-000000000001"), son1.id(), son1.displayName(), 0, LocalDate.of(2026, 1, 1)));
+        accounts.put(UUID.fromString("10000000-0000-0000-0000-000000000002"), new Ledger.Account(UUID.fromString("10000000-0000-0000-0000-000000000002"), son2.id(), son2.displayName(), 0, LocalDate.of(2026, 1, 1)));
     }
 
     public Collection<Ledger.User> users() { return users.values(); }

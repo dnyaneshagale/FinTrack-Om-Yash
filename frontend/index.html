@@ -5,9 +5,38 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fintrack Om Yash</title>
+    <style>
+      #nl-badge,
+      .nl-badge,
+      [id="nl-badge"],
+      [class*="nl-badge"],
+      [aria-label*="Netlify"],
+      [data-netlify-badge],
+      iframe[src*="netlify"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 0 !important;
+        height: 0 !important;
+        z-index: -9999 !important;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        const removeBadge = () => {
+          const badge = document.getElementById('nl-badge') || document.querySelector('.nl-badge') || document.querySelector('[aria-label*="Netlify"]');
+          if (badge) badge.remove();
+        };
+        removeBadge();
+        const obs = new MutationObserver(removeBadge);
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+      })();
+    </script>
   </body>
 </html>
